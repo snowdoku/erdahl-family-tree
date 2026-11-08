@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Family tree · Erdahl Family Tree</title>
+<meta name="description" content="Family tree · Erdahl Family Tree">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+<script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<header class="site">
+  <div class="site-in">
+    <a class="brand" href="../">Erdahl Family Tree</a>
+    <nav class="site-nav" aria-label="Site"><a href="../lines/">Family lines</a><a href="../tree/" aria-current=page>Tree</a><a href="../browse/">Browse</a><a href="../about/">How to read this</a></nav>
+    <form class="site-search" action="../search/" role="search">
+      <label for="site-q" class="vh">Find a person</label>
+      <input id="site-q" name="q" type="search" placeholder="Find a person" autocomplete="off">
+      <button type="submit">Find</button>
+    </form>
+  </div>
+</header>
+
+<main id="main">
+<article class="tree-page">
+<h1>Family tree</h1>
+<div class="tree-bar" role="group" aria-label="Choose a view">
+  <button type="button" class="btn" data-view="pedigree" aria-pressed="true">Pedigree</button>
+  <button type="button" class="btn" data-view="fan" aria-pressed="false">Fan</button>
+  <a class="btn" id="tree-home" href="#l-aa743a0aae">Back to David</a>
+</div>
+<p class="fine" id="tree-help">Tap a person to move the tree to them. Tap the person at the start of the tree to open their page.</p>
+<div id="tree" class="tree" aria-live="polite"><p>Loading the tree…</p></div>
+<div id="tree-kids" class="tree-kids"></div>
+<noscript><p>The tree needs JavaScript. Every person is also reachable from <a href="../browse/generations/">the list of generations</a>.</p></noscript>
+</article>
+<script src="../assets/tree.js" defer></script>
+</main>
+<footer class="site-foot">
+  <p><a href="../">Home</a> · <a href="../about/">What the grades mean</a> · <button type="button" class="theme-btn" data-theme-toggle>Light / dark</button></p>
+  <p class="fine">Public edition, built 8 November 2026. Living relatives are shown by their given names only.</p>
+</footer>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>
