@@ -25,19 +25,31 @@
 </header>
 
 <main id="main">
-<article class="tree-page">
-<h1>Family tree</h1>
-<div class="tree-bar" role="group" aria-label="Choose a view">
-  <button type="button" class="btn" data-view="pedigree" aria-pressed="true">Pedigree</button>
-  <button type="button" class="btn" data-view="fan" aria-pressed="false">Fan</button>
-  <a class="btn" id="tree-home" href="#l-aa743a0aae">Back to David</a>
+<article class="tree-wrap"><h1>Family tree</h1><section class="tree-page" aria-label="Family tree">
+<div class="tree-bar">
+  <div class="seg-btns" role="group" aria-label="View">
+    <button type="button" class="btn" data-view="pedigree" aria-pressed="true">Pedigree</button>
+    <button type="button" class="btn" data-view="fan" aria-pressed="false">Fan</button>
+  </div>
+  <div class="seg-btns" role="group" aria-label="Generations">
+    <button type="button" class="btn" data-depth="-" aria-label="Fewer generations">− Fewer</button>
+    <button type="button" class="btn" data-depth="+" aria-label="More generations">+ More</button>
+    <button type="button" class="btn" data-depth="all">All generations</button>
+  </div>
+  <div class="seg-btns" role="group" aria-label="Zoom">
+    <button type="button" class="btn" data-zoom="out" aria-label="Zoom out">Zoom out</button>
+    <button type="button" class="btn" data-zoom="in" aria-label="Zoom in">Zoom in</button>
+    <button type="button" class="btn" data-zoom="fit">Fit</button>
+    <span class="fine zoom-level" id="tree-zoom">100%</span>
+  </div>
+  <span class="fine" id="tree-depth" aria-live="polite"></span>
 </div>
-<p class="fine" id="tree-help">Tap a person to move the tree to them. Tap the person at the start of the tree to open their page.</p>
-<div id="tree" class="tree" aria-live="polite"><p>Loading the tree…</p></div>
+<p class="fine tree-help">Tap a person to move the tree to them. <strong>More</strong> reaches further back; <strong>Zoom out</strong> (or pinch) shows more at once.</p>
+<div id="tree" class="tree" data-base="../"><p>Loading the tree…</p></div>
 <div id="tree-kids" class="tree-kids"></div>
-<noscript><p>The tree needs JavaScript. Every person is also reachable from <a href="../browse/generations/">the list of generations</a>.</p></noscript>
-</article>
-<script src="../assets/tree.js" defer></script>
+<noscript><p>The tree needs JavaScript. Everyone is also listed <a href="../browse/generations/">by generation</a>.</p></noscript>
+</section>
+<script src="../assets/tree.js" defer></script></article>
 </main>
 <footer class="site-foot">
   <p><a href="../">Home</a> · <a href="../about/">What the grades mean</a> · <button type="button" class="theme-btn" data-theme-toggle>Light / dark</button></p>
