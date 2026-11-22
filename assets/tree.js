@@ -6,8 +6,8 @@
    - The stepper goes from 2 generations to all of them, always left to right. Past six the
      rows become thin and every column is kept on screen; tap any part to zoom in there.
    - A heading over each column says which generation it is and when those people were born.
-   - "Colour by" paints everyone by confidence, country, ethnicity, family line, generation
-     or war service; the key beside it says what each colour means.
+   - "Color by" paints everyone by confidence, country, ethnicity, family line, generation
+     or war service; the key beside it says what each color means.
    - #/<slug> finds that person in the main tree; #/~<slug> starts the tree from them. */
 (function () {
   "use strict";
@@ -36,8 +36,8 @@
   var ancMemo = {}, deepMemo = {};
   var TREE_CAP = 6;   // up to here the cards are full size; deeper trees use thin rows
 
-  // ------------------------------------------------------------------ colours
-  var GREY = "var(--tl)";
+  // ------------------------------------------------------------------ colors
+  var GRAY = "var(--tl)";
   var FIELD = { country: 8, eth: 9, war: 11 };    // where each answer sits in a person's row
   var PAL = {
     country: { "Norway": "#b14a52", "United States": "#3a6fa6", "Canada": "#c2693f", "England": "#7b5ea7", "Scotland": "#2d8ca0",
@@ -69,19 +69,19 @@
     var t = Math.min(1, g / Math.max(1, deep(root) - 1));
     return "hsl(" + Math.round(28 + t * 150) + "," + Math.round(52 - t * 16) + "%," + Math.round(46 + t * 6) + "%)";
   }
-  function tint(sl, path) {     // [colour, what it stands for]; no colour means the confidence colour
+  function tint(sl, path) {     // [color, what it stands for]; no color means the confidence color
     var p = P[sl];
     if (colorBy === "conf") return [null, p[2]];
     if (colorBy === "gen") return [genTint(path.length - 1), "Generation " + path.length];
     if (colorBy === "line") {
       var i = lineIdx(path);
-      return i < 0 ? [GREY, path === "r" ? "" : "Several lines meet here"] : [LINE_COL[i], lineName(i) + "’s line"];
+      return i < 0 ? [GRAY, path === "r" ? "" : "Several lines meet here"] : [LINE_COL[i], lineName(i) + "’s line"];
     }
     var v = p[FIELD[colorBy]] || "";
-    if (!v) return [GREY, colorBy === "war" ? "" : p[2] === "Living" ? "Living, not shown" : "Not known"];
-    return [PAL[colorBy][v] || GREY, v];
+    if (!v) return [GRAY, colorBy === "war" ? "" : p[2] === "Living" ? "Living, not shown" : "Not known"];
+    return [PAL[colorBy][v] || GRAY, v];
   }
-  function paintKey() {         // the key beside the "Colour by" menu
+  function paintKey() {         // the key beside the "Color by" menu
     if (!keyEl) return;
     var id = root + "|" + colorBy;
     if (keyEl.dataset.id === id) return;
@@ -111,8 +111,8 @@
         var pr = par(sl);
         walk(pr[0]); walk(pr[1]);
       })(root);
-      Object.keys(n).sort(function (a, b) { return n[b] - n[a]; }).forEach(function (v) { html += item(PAL[colorBy][v] || GREY, v, n[v]); });
-      if (none) html += item(GREY, colorBy === "war" ? "No war service found" : "Not known or living", none);
+      Object.keys(n).sort(function (a, b) { return n[b] - n[a]; }).forEach(function (v) { html += item(PAL[colorBy][v] || GRAY, v, n[v]); });
+      if (none) html += item(GRAY, colorBy === "war" ? "No war service found" : "Not known or living", none);
     }
     keyEl.innerHTML = html;
   }

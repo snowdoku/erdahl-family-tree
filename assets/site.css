@@ -139,7 +139,7 @@ main:has(.home), main:has(.wide) { max-width: 64rem; }
 .toc { margin: 1rem 0 0; padding: .6rem 0; border-top: 1px solid var(--line2); font: .82rem/1.9 var(--sans); color: var(--muted); }
 .toc a { margin-right: .7rem; white-space: nowrap; display: inline-block; padding: .3rem 0; }
 
-/* confidence: one component everywhere, colour plus the word */
+/* confidence: one component everywhere, color plus the word */
 .badge { display: inline-flex; align-items: center; gap: .45em; min-height: 40px; padding: 0 .85em;
   border-radius: 99px; border: 1.5px solid var(--c); background: color-mix(in srgb, var(--c) 10%, var(--paper));
   font: 600 .8rem/1 var(--sans); color: var(--ink); text-decoration: none; }
