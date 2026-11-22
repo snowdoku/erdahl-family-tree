@@ -317,6 +317,7 @@ body.app .site-foot { display: none; }
 .tn-x::before { content: ""; position: absolute; inset: -11px -8px; }
 .tn-x:hover { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .tn-x[aria-expanded="true"] { min-width: 20px; width: 20px; height: 20px; padding: 0; color: var(--muted); font-size: 14px; }
+.tinted .tn-card { background: color-mix(in srgb, var(--c, var(--paper)) 17%, var(--paper)); }
 .far .tn-name, .far .tn-life, .far .tn-x { visibility: hidden; }
 .far .tn-card { background: var(--c, var(--tl)); border-color: transparent; }
 .far .tn.root .tn-card { background: var(--ink); box-shadow: 0 0 0 var(--ring, 10px) var(--ink); }
@@ -383,10 +384,18 @@ a.tree-home[hidden] { display: none; }
 .tree-zoom button + button { border-left: 0; border-top: 1px solid var(--line2); }
 .tree-zoom button[data-zoom="fit"] { font-size: 13px; font-weight: 600; }
 .tree-legend { position: absolute; left: 12px; bottom: 10px; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;
+  max-width: calc(100% - 96px);
   padding: 7px 12px; background: color-mix(in srgb, var(--paper) 88%, transparent); border: 1px solid var(--line2); border-radius: 10px;
   font: 12.5px/1.2 var(--sans); color: var(--ink2); z-index: 3; }
 .tree-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .tree-legend a { color: var(--accent); }
+.tl-by { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.tl-by select { height: 30px; margin: 0; padding: 0 4px; font: 600 12.5px/1 var(--sans); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.tl-key { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.tl-key b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tp-grade + .tp-grade { margin-left: 6px; }
+.tp-note { margin: -4px 0 12px; font: 13.5px/1.45 var(--sans); color: var(--ink2); }
 .tree-hint { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); margin: 0; padding: 9px 16px; border-radius: 99px;
   background: var(--ink); color: var(--bg); font: 500 13.5px/1.2 var(--sans); white-space: nowrap; pointer-events: none; z-index: 3;
   box-shadow: 0 4px 16px rgba(0,0,0,.25); }
@@ -420,9 +429,15 @@ a.tree-home[hidden] { display: none; }
   .dense .tn-life { display: none; }
   .seg button { padding: 0 11px; }
   .seg-label { padding: 0 8px; }
-  .tree-legend { display: none; }
+  .tree-legend { left: 8px; right: 62px; bottom: calc(10px + var(--sheet) + env(safe-area-inset-bottom, 0px)); max-width: none;
+    flex-wrap: nowrap; gap: 12px; padding: 4px 10px 4px 4px; overflow-x: auto; touch-action: pan-x; scrollbar-width: none;
+    background: var(--paper); }
+  .tree-legend::-webkit-scrollbar { display: none; }
+  .tl-t { display: none !important; }
+  .tl-by select { height: 38px; font-size: 16px; }
+  .tl-key { flex-wrap: nowrap; white-space: nowrap; }
   .tree-zoom { right: 8px; bottom: calc(10px + var(--sheet) + env(safe-area-inset-bottom, 0px)); }
-  .tree-hint { bottom: 14px; left: 8px; right: 62px; transform: none; text-align: center; white-space: normal; font-size: 13px; }
+  .tree-hint { bottom: 68px; left: 8px; right: 62px; transform: none; text-align: center; white-space: normal; font-size: 13px; }
   .tree-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 60%; border-radius: 18px 18px 0 0;
     border-width: 1px 0 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(0,0,0,.25); }
   .tp-name { font-size: 20px; }

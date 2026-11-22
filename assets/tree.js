@@ -5,6 +5,8 @@
    - The stepper goes from 2 generations to all of them, always left to right. Past six the
      rows become thin and every column is kept on screen; tap any part to zoom in there.
    - A heading over each column says which generation it is and when those people were born.
+   - "Colour by" paints everyone by confidence, country, ethnicity, family line, generation
+     or war service; the key beside it says what each colour means.
    - #/<slug> finds that person in the main tree; #/~<slug> starts the tree from them. */
 (function () {
   "use strict";
@@ -20,6 +22,8 @@
   var hint = document.getElementById("tree-hint");
   var bar = stage.querySelector(".tree-bar");
   var colsEl = document.getElementById("tree-cols");
+  var keyEl = document.getElementById("tree-key");
+  var colorEl = document.getElementById("tree-color");
 
   var D, P, root = null, view = "tree", sel = null, open = {}, fanDepth = 5;
   var nodes = [], byPath = {}, W = 0, H = 0, maxG = 0;
@@ -29,6 +33,87 @@
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var ancMemo = {}, deepMemo = {};
   var TREE_CAP = 6;   // up to here the cards are full size; deeper trees use thin rows
+
+  // ------------------------------------------------------------------ colours
+  var GREY = "var(--tl)";
+  var FIELD = { country: 8, eth: 9, war: 11 };    // where each answer sits in a person's row
+  var PAL = {
+    country: { "Norway": "#b14a52", "United States": "#3a6fa6", "Canada": "#c2693f", "England": "#7b5ea7", "Scotland": "#2d8ca0",
+      "Ireland": "#6f8f3a", "Germany": "#b8992f", "Poland": "#a0633a", "Ukraine": "#2f7d6b", "Romania": "#5a6fae",
+      "Denmark": "#c0746a", "Sweden": "#4f9a86", "China": "#a8667f", "Jamaica": "#8f8a3a", "Barbados": "#6a7f9a" },
+    eth: { "Norwegian": "#b14a52", "English": "#7b5ea7", "Scottish": "#2d8ca0", "Irish": "#6f8f3a", "German": "#b8992f",
+      "Danish": "#c0746a", "Swedish": "#4f9a86", "Mixed": "#3a6fa6" },
+    war: { "Great Northern War 1700–21": "#8a5a2b", "American Revolution 1775–83": "#3a6fa6", "Napoleonic Wars 1807–14": "#7b5ea7",
+      "U.S. Civil War 1861–65": "#2d8ca0", "Dakota War 1862": "#c2693f", "World War I": "#6f8f3a", "World War II": "#b14a52" }
+  };
+  var LINE_COL = ["#3a6fa6", "#2d8ca0", "#4f9a86", "#6f8f3a", "#b8992f", "#c2693f", "#b14a52", "#7b5ea7"];
+  var colorBy = "conf";
+  try {
+    var saved = localStorage.getItem("treeColor");
+    if (saved === "line" || saved === "gen" || FIELD[saved]) colorBy = saved;
+  } catch (e) {}
+  if (colorEl) colorEl.value = colorBy;
+  function lineIdx(path) {      // which of the eight great-grandparents this person sits behind
+    if (path.length < 4) return -1;
+    return (path.charAt(1) === "m" ? 4 : 0) + (path.charAt(2) === "m" ? 2 : 0) + (path.charAt(3) === "m" ? 1 : 0);
+  }
+  function lineName(i) {        // that great-grandparent, as "William Erdahl"
+    var sl = slugAt("r" + (i & 4 ? "m" : "f") + (i & 2 ? "m" : "f") + (i & 1 ? "m" : "f"));
+    if (!sl) return "";
+    var w = P[sl][0].replace(/\s*\(.*?\)|"[^"]*"|“[^”]*”/g, " ").trim().split(/\s+/);
+    return w.length > 1 ? w[0] + " " + w[w.length - 1] : w[0];
+  }
+  function genTint(g) {         // warm near you, cool far back
+    var t = Math.min(1, g / Math.max(1, deep(root) - 1));
+    return "hsl(" + Math.round(28 + t * 150) + "," + Math.round(52 - t * 16) + "%," + Math.round(46 + t * 6) + "%)";
+  }
+  function tint(sl, path) {     // [colour, what it stands for]; no colour means the confidence colour
+    var p = P[sl];
+    if (colorBy === "conf") return [null, p[2]];
+    if (colorBy === "gen") return [genTint(path.length - 1), "Generation " + path.length];
+    if (colorBy === "line") {
+      var i = lineIdx(path);
+      return i < 0 ? [GREY, path === "r" ? "" : "Several lines meet here"] : [LINE_COL[i], lineName(i) + "’s line"];
+    }
+    var v = p[FIELD[colorBy]] || "";
+    if (!v) return [GREY, colorBy === "war" ? "" : p[2] === "Living" ? "Living, not shown" : "Not known"];
+    return [PAL[colorBy][v] || GREY, v];
+  }
+  function paintKey() {         // the key beside the "Colour by" menu
+    if (!keyEl) return;
+    var id = root + "|" + colorBy;
+    if (keyEl.dataset.id === id) return;
+    keyEl.dataset.id = id;
+    function item(c, label, n) {
+      return '<span style="--c:' + c + '"><i class="dot"></i>' + esc(label) + (n ? " <b>" + n.toLocaleString() + "</b>" : "") + "</span>";
+    }
+    var html = "", i;
+    if (colorBy === "conf") {
+      [["Confirmed", "conf-confirmed"], ["Probable", "conf-probable"], ["Speculative", "conf-speculative"],
+        ["From family", "conf-user"], ["Living", "conf-living"]].forEach(function (x) {
+        html += '<span class="' + x[1] + '"><i class="dot"></i>' + x[0] + "</span>";
+      });
+      html += '<a href="' + base + 'about/#grades">What these mean</a>';
+    } else if (colorBy === "gen") {
+      var max = deep(root), last = 0;
+      [1, 5, 10, 15, max].forEach(function (g) { if (g <= max && g > last) { html += item(genTint(g - 1), "Gen " + g); last = g; } });
+    } else if (colorBy === "line") {
+      for (i = 0; i < 8; i++) if (lineName(i)) html += item(LINE_COL[i], lineName(i));
+    } else {
+      var n = {}, seen = {}, none = 0, f = FIELD[colorBy];
+      (function walk(sl) {      // every ancestor once
+        if (!sl || seen[sl]) return;
+        seen[sl] = 1;
+        var v = P[sl][f];
+        if (v) n[v] = (n[v] || 0) + 1; else none++;
+        var pr = par(sl);
+        walk(pr[0]); walk(pr[1]);
+      })(root);
+      Object.keys(n).sort(function (a, b) { return n[b] - n[a]; }).forEach(function (v) { html += item(PAL[colorBy][v] || GREY, v, n[v]); });
+      if (none) html += item(GREY, colorBy === "war" ? "No war service found" : "Not known or living", none);
+    }
+    keyEl.innerHTML = html;
+  }
 
   fetch(base + "data/graph.json").then(function (r) { return r.json(); }).then(function (d) {
     D = d; P = d.people;
@@ -118,7 +203,7 @@
     var w = stage.clientWidth, h = stage.clientHeight, on = !panel.hidden;
     var top = view === "tree" && colsEl ? colsEl.offsetHeight + 8 : (bar ? bar.offsetTop + bar.offsetHeight : 0) + 10;
     var right = on && !small ? panel.offsetWidth + 24 : small ? 10 : 64;
-    var bottom = on && small ? panel.offsetHeight + 10 : (small ? 14 : 44);
+    var bottom = on && small ? panel.offsetHeight + 56 : (small ? 60 : 44);
     return { l: 14, t: top, r: w - right, b: h - bottom, w: w - right - 14, h: h - bottom - top };
   }
   // The camera is moved by hand, frame by frame. A CSS transition would make the browser keep
@@ -131,7 +216,9 @@
     if (view !== "tree" || !colsEl) return;       // the column headings ride along with their columns
     var pitch = (CW + GX) * cur.k, w = CW * cur.k, size = w >= 170 ? "l" : w >= 58 ? "m" : "s";
     if (colsEl.dataset.size !== size) colsEl.dataset.size = size;
+    var every = pitch < 16 ? Math.ceil(18 / pitch) : 1;   // too tight for every number: label every few columns
     for (var c = 0; c < colEls.length; c++) {
+      colEls[c].style.visibility = c === 0 || (c + 1) % every === 0 ? "" : "hidden";
       colEls[c].style.transform = "translateX(" + (cur.x + c * pitch).toFixed(1) + "px)";
       colEls[c].style.width = Math.max(w, 14).toFixed(1) + "px";
     }
@@ -256,9 +343,9 @@
     var html = "", d = "", hi = "";
     nodes.forEach(function (n) {
       var p = P[n.sl], isOpen = !!n.kids.length;
-      var onLine = sel && sel.indexOf(n.path) === 0;
+      var onLine = sel && sel.indexOf(n.path) === 0, tc = tint(n.sl, n.path)[0];
       html += '<div class="tn ' + cls(p[2]) + (n.path === sel ? " sel" : "") + (n.g === 0 ? " root" : "") +
-        '" data-path="' + n.path + '" style="left:' + n.x + "px;top:" + n.y + 'px">' +
+        '" data-path="' + n.path + '" style="left:' + n.x + "px;top:" + n.y + "px" + (tc ? ";--c:" + tc : "") + '">' +
         '<button type="button" class="tn-card" title="' + esc(p[0] + (p[1] ? ", " + p[1] : "")) + '">' +
         '<span class="tn-name">' + esc(p[0]) + '</span><span class="tn-life">' + esc(dense ? years(p[1]) : p[1]) + "</span></button>" +
         (n.hasPar ? '<button type="button" class="tn-x" aria-expanded="' + isOpen + '" aria-label="' +
@@ -352,7 +439,8 @@
             '" text-anchor="middle" dominant-baseline="middle" transform="rotate(' + rot.toFixed(1) + " " +
             tx.toFixed(1) + " " + ty.toFixed(1) + ')">' + esc(shorten(p[0], maxc)) + "</text>";
         }
-        out.push('<a href="#" data-path="' + path + '" aria-label="' + esc(p[0] + ", " + p[1] + ", " + p[2]) +
+        var tc = tint(sl, path)[0];
+        out.push('<a href="#" data-path="' + path + '"' + (tc ? ' style="--c:' + tc + '"' : "") + ' aria-label="' + esc(p[0] + ", " + p[1] + ", " + p[2]) +
           '" class="seg ' + cls(p[2]) + (len < 6 ? " thin" : "") + (path === sel ? " sel" : "") + '"><title>' + esc(p[0] + (p[1] ? ", " + p[1] : "")) +
           '</title><path d="' + arc(cx, cy, ri, ro, a0, a1) + '"></path>' + txt + "</a>");
       }
@@ -391,6 +479,8 @@
     metrics();
     marks = [];
     if (view === "fan") paintFan(); else paintTree();
+    paintKey();
+    stage.classList.toggle("tinted", colorBy !== "conf");
     var r = region();
     kMin = Math.max(0.02, Math.min(0.3, 0.7 * Math.min(r.w / W, r.h / H)));
     kMax = view === "fan" ? 8 : 1.6;          // the outer rings of the fan are hairlines until you zoom in
@@ -407,12 +497,16 @@
       homeEl.hidden = root === D.root;
       homeEl.textContent = "← Back to " + D.rootName;
     }
+    render();
   }
   function showPanel() {
     var sl = sel && slugAt(sel);
     if (!sl) return hidePanel();
     var p = P[sl], n = byPath[sel], f = first(p[0]), acts = "";
-    var where = p[7] ? " · born in " + p[7] : "";
+    var where = p[7] ? " · born in " + p[7] : "", tc = tint(sl, sel), more = "";
+    if (colorBy !== "conf" && tc[1]) more = '<p class="tp-grade" style="--c:' + tc[0] + '"><i class="dot"></i>' + esc(tc[1]) + "</p>";
+    if (colorBy === "eth" && p[10]) more += '<p class="tp-note">' + esc(p[10]) + "</p>";
+    if (colorBy === "war" && p[12]) more += '<p class="tp-note">' + esc(p[12]) + "</p>";
     if (view === "tree" && n && n.hasPar) {
       acts += '<button type="button" class="btn" data-act="toggle">' + (n.kids.length ? "Hide " + esc(f) + "’s ancestors" : "Show " + esc(f) + "’s parents") + "</button>";
       if (anc(sl) > 2 && anc(sl) <= 120 && !n.kids.length) acts += '<button type="button" class="btn" data-act="all">Show all ' + anc(sl).toLocaleString() + " ancestors</button>";
@@ -422,7 +516,7 @@
       '<p class="tp-kin">' + esc(kin(sel)) + "</p>" +
       '<h2 class="tp-name">' + esc(p[0]) + "</h2>" +
       '<p class="tp-life">' + esc(p[1]) + esc(where) + "</p>" +
-      '<p class="tp-grade ' + cls(p[2]) + '"><i class="dot"></i>' + esc(p[2]) + "</p>" +
+      '<p class="tp-grade ' + cls(p[2]) + '"><i class="dot"></i>' + esc(p[2]) + "</p>" + more +
       '<div class="tp-acts"><a class="btn primary" href="' + base + "p/" + sl + '/">Open ' + esc(f) + "’s page</a>" + acts + "</div>";
     panel.hidden = false;
     stage.style.setProperty("--sheet", small ? panel.offsetHeight + "px" : "0px");
@@ -617,6 +711,12 @@
         if (a === "fit") fitAll(true);
         else zoomAt(r.l + r.w / 2, r.t + r.h / 2, T.k * (a === "in" ? 1.5 : 1 / 1.5), true);
       });
+    });
+    if (colorEl) colorEl.addEventListener("change", function () {   // repaint in place; the camera does not move
+      colorBy = colorEl.value;
+      try { localStorage.setItem("treeColor", colorBy); } catch (e) {}
+      paint();
+      if (sel) showPanel();
     });
     window.addEventListener("hashchange", applyHash);
     window.addEventListener("keydown", function (e) { if (e.key === "Escape" && sel) select(null); });
