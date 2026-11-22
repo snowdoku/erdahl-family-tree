@@ -25,7 +25,7 @@
   var nodes = [], byPath = {}, W = 0, H = 0, maxG = 0;
   var T = { x: 0, y: 0, k: 1 }, cur = { x: 0, y: 0, k: 1 }, raf = 0, kMin = 0.05, kMax = 1.6;
   var CW = 184, CH = 56, GX = 46, GY = 10, small = false;
-  var big = false, dense = false, marks = [], colEls = [], told = false;   // big: more than six generations, thin rows
+  var big = false, dense = false, marks = [], colEls = [];   // big: more than six generations, thin rows
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var ancMemo = {}, deepMemo = {};
   var TREE_CAP = 6;   // up to here the cards are full size; deeper trees use thin rows
@@ -176,6 +176,17 @@
   }
   function fitAll(ease, floor) { fitBox(0, 0, W, H, ease, floor); }
   function floorNow() { return view === "tree" && !big ? FLOOR() : 0; }
+  function anchor(lim) {        // who to hold still: the selected person if on screen, else whoever is nearest the middle
+    var r = region(), cx = r.l + r.w / 2, cy = r.t + r.h / 2, best = null, bd = Infinity;
+    nodes.forEach(function (n) {
+      if (n.g >= lim) return;                    // about to be hidden
+      var x = T.x + (n.x + CW / 2) * T.k, y = T.y + (n.y + CH / 2) * T.k;
+      var d = Math.hypot(x - cx, y - cy);
+      if (n.path === sel && x > r.l && x < r.r && y > r.t && y < r.b) d = -1;
+      if (d < bd) { bd = d; best = { path: n.path, x: x, y: y }; }
+    });
+    return best;
+  }
   function home(ease) {         // the view a tree opens in
     if (view === "tree" && big) fitBox(0, 0, W, H, ease, 0, null, true);   // every column across; drag up and down
     else fitAll(ease, floorNow());
@@ -468,12 +479,6 @@
       try { localStorage.setItem("treeHint", "1"); } catch (e) {}
     }
     try { if (localStorage.getItem("treeHint")) hint.hidden = true; } catch (e) {}
-    function say(msg) {          // a short note in the hint pill; the next touch clears it
-      if (!hint) return;
-      hint.textContent = msg; hint.hidden = false;
-      clearTimeout(say.t);
-      say.t = setTimeout(function () { hint.hidden = true; }, 8000);
-    }
 
     stage.addEventListener("pointerdown", function (e) {
       if (ui(e) || (e.pointerType === "mouse" && e.button !== 0)) return;
@@ -580,10 +585,18 @@
     stage.querySelectorAll("[data-depth]").forEach(function (b) {
       b.addEventListener("click", function () {
         var a = b.dataset.depth;
-        var was = dense;
-        if (view === "fan") fanDepth = a === "all" ? 99 : a === "+" ? fanRings() + 1 : fanRings() - 1;
-        else {
+        halt();
+        // Changing the number of generations never moves the camera: the person nearest the
+        // middle of the screen (or the one selected) stays exactly where they are.
+        var keep = null, zoomed = false, mx = 0, my = 0;
+        if (view === "fan") {
+          var rg = region();
+          zoomed = T.k > Math.min(1, rg.w / W, rg.h / H) * 1.05;     // looking at one part of the fan
+          mx = T.x + W / 2 * T.k; my = T.y + W / 2 * T.k;            // where the middle of the fan is
+          fanDepth = a === "all" ? 99 : a === "+" ? fanRings() + 1 : fanRings() - 1;
+        } else {
           var to = Math.min(deep(root), a === "all" ? 99 : a === "+" ? maxG + 2 : Math.max(maxG, 2));
+          keep = anchor(to);
           big = to > TREE_CAP;
           setDepth(to);
         }
@@ -592,14 +605,10 @@
         if (sel && view === "tree" && !byPath[sel]) { sel = null; paint(); }
         if (sel) showPanel(); else hidePanel();
         syncHash();
-        // Up to six generations stay readable and you drag. Deeper, every column stays on
-        // screen under its heading and the rows shrink; a tap zooms in.
-        if (view === "tree" && big) home(false);
-        else fitAll(!was && a !== "all", view === "tree" ? 0.62 : 0);
-        if (view === "tree" && stage.classList.contains("far") && !told) {
-          told = true;
-          say((small ? "Tap" : "Click") + " any part to zoom in there");
-        }
+        var n = keep && byPath[keep.path];
+        if (n) { T.x = keep.x - (n.x + CW / 2) * T.k; T.y = keep.y - (n.y + CH / 2) * T.k; apply(false); }
+        else if (view === "fan" && zoomed) { T.x = mx - W / 2 * T.k; T.y = my - W / 2 * T.k; apply(false); }
+        else home(true);
       });
     });
     stage.querySelectorAll("[data-zoom]").forEach(function (b) {
