@@ -324,8 +324,7 @@ body.app .site-foot { display: none; }
 .far .tn.sel, .far .tn.root { z-index: 1; }
 .far .tree-lines path { stroke-width: 1; }
 
-/* Everyone: one thin line per person, father's side to the left of the root, mother's to the right */
-.tn.lft .tn-x { left: auto; right: calc(100% - 5px); }
+/* past six generations: one thin row per person */
 .dense .tn-card { flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; padding: 0 6px 0 7px;
   border-left-width: 4px; border-radius: 5px; }
 .dense .tn-name { flex: 1 1 auto; min-width: 0; display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; line-height: 20px; }
@@ -336,9 +335,20 @@ body.app .site-foot { display: none; }
 .dense .tn.sel .tn-card { box-shadow: 0 0 0 2px var(--accent); }
 .dense.far .tn-card { border-radius: 0; }
 .dense.far .tn.sel .tn-card { box-shadow: 0 0 0 var(--ring, 10px) var(--accent); }
-.tree-side { display: none; position: absolute; transform: translateX(-50%); white-space: nowrap; line-height: 1;
-  font-family: var(--sans); font-weight: 600; color: var(--ink2); pointer-events: none; }
-.dense.far .tree-side { display: block; }
+
+/* a heading over each column: which generation, and when its people were born */
+.tree-cols { position: absolute; left: 0; right: 0; top: 0; height: 108px; z-index: 2; overflow: hidden; pointer-events: none;
+  background: var(--sunk); border-bottom: 1px solid var(--line); }
+.tree-stage:not(.ready) .tree-cols, .tree-stage[data-view="fan"] .tree-cols { display: none; }
+.tc { position: absolute; left: 0; bottom: 0; height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; font: 600 12.5px/1.25 var(--sans); color: var(--ink); }
+.tc small { font: 500 11px/1.25 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc .c-gen, .tc .c-n { display: none; }
+[data-size="m"] .tc .c-kin, [data-size="s"] .tc .c-kin, [data-size="m"] .tc .c-l, [data-size="s"] .tc small { display: none; }
+[data-size="m"] .tc .c-gen, [data-size="s"] .tc .c-n { display: block; }
+[data-size="m"] .tc { font-size: 11.5px; }
+[data-size="m"] .tc small { font-size: 10px; }
+[data-size="s"] .tc { font-size: 10px; font-weight: 500; color: var(--ink2); }
 
 .fan { display: block; overflow: visible; }
 .fan .seg path { fill: var(--c, var(--tl)); stroke: var(--sunk); stroke-width: 1.5; fill-opacity: .32; cursor: pointer; vector-effect: non-scaling-stroke; }

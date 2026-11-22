@@ -2,8 +2,9 @@
    - Drag to move, wheel or pinch to zoom, double-click to zoom in.
    - Tap a person: a card opens with who they are and what you can do next.
    - The + on a person's right edge opens their parents; − closes that branch.
-   - Everyone opens every branch at once: father's side to the left, mother's to the right,
-     drawn small so the whole family fits; tap any part of it to zoom in there.
+   - The stepper goes from 2 generations to all of them, always left to right. Past six the
+     rows become thin and every column is kept on screen; tap any part to zoom in there.
+   - A heading over each column says which generation it is and when those people were born.
    - #/<slug> finds that person in the main tree; #/~<slug> starts the tree from them. */
 (function () {
   "use strict";
@@ -18,15 +19,16 @@
   var homeEl = document.getElementById("tree-home");
   var hint = document.getElementById("tree-hint");
   var bar = stage.querySelector(".tree-bar");
+  var colsEl = document.getElementById("tree-cols");
 
   var D, P, root = null, view = "tree", sel = null, open = {}, fanDepth = 5;
   var nodes = [], byPath = {}, W = 0, H = 0, maxG = 0;
   var T = { x: 0, y: 0, k: 1 }, cur = { x: 0, y: 0, k: 1 }, raf = 0, kMin = 0.05, kMax = 1.6;
   var CW = 184, CH = 56, GX = 46, GY = 10, small = false;
-  var big = false, dense = false, sides = [], marks = [];   // big: every branch open, both sides of the root
+  var big = false, dense = false, marks = [], colEls = [], told = false;   // big: more than six generations, thin rows
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var ancMemo = {}, deepMemo = {};
-  var TREE_CAP = 6;   // the stepper stops here; past it, Everyone draws the whole family small
+  var TREE_CAP = 6;   // up to here the cards are full size; deeper trees use thin rows
 
   fetch(base + "data/graph.json").then(function (r) { return r.json(); }).then(function (d) {
     D = d; P = d.people;
@@ -110,10 +112,11 @@
     stage.style.setProperty("--cw", CW + "px");
     stage.style.setProperty("--ch", CH + "px");
     stage.classList.toggle("dense", dense);
+    if (colsEl && bar) colsEl.style.height = (bar.offsetTop + bar.offsetHeight + 44) + "px";   // a solid band: toolbar, then headings
   }
   function region() {           // the part of the stage nothing else covers
     var w = stage.clientWidth, h = stage.clientHeight, on = !panel.hidden;
-    var top = (bar ? bar.offsetTop + bar.offsetHeight : 0) + 10;
+    var top = view === "tree" && colsEl ? colsEl.offsetHeight + 8 : (bar ? bar.offsetTop + bar.offsetHeight : 0) + 10;
     var right = on && !small ? panel.offsetWidth + 24 : small ? 10 : 64;
     var bottom = on && small ? panel.offsetHeight + 10 : (small ? 14 : 44);
     return { l: 14, t: top, r: w - right, b: h - bottom, w: w - right - 14, h: h - bottom - top };
@@ -125,6 +128,13 @@
     var far = view === "tree" && cur.k < (dense ? 0.5 : 0.42);
     stage.classList.toggle("far", far);
     if (far) for (var i = 0; i < marks.length; i++) marks[i].style.setProperty("--ring", (3.5 / cur.k).toFixed(1) + "px");
+    if (view !== "tree" || !colsEl) return;       // the column headings ride along with their columns
+    var pitch = (CW + GX) * cur.k, w = CW * cur.k, size = w >= 170 ? "l" : w >= 58 ? "m" : "s";
+    if (colsEl.dataset.size !== size) colsEl.dataset.size = size;
+    for (var c = 0; c < colEls.length; c++) {
+      colEls[c].style.transform = "translateX(" + (cur.x + c * pitch).toFixed(1) + "px)";
+      colEls[c].style.width = Math.max(w, 14).toFixed(1) + "px";
+    }
   }
   function halt() {             // a new gesture takes over from wherever the camera is now
     if (!raf) return;
@@ -153,9 +163,9 @@
     T.x = cx - wx * k; T.y = cy - wy * k; T.k = k;
     apply(ease);
   }
-  function fitBox(x, y, w, h, ease, floor, keep) {
+  function fitBox(x, y, w, h, ease, floor, keep, wide) {
     var r = region();
-    var k = Math.min(1, r.w / w, r.h / h);
+    var k = Math.min(1, r.w / w, wide ? 1 : r.h / h);
     if (floor && k < floor) k = floor;
     T.k = k;
     T.x = w * k > r.w ? r.l - x * k : r.l + (r.w - w * k) / 2 - x * k;
@@ -166,6 +176,10 @@
   }
   function fitAll(ease, floor) { fitBox(0, 0, W, H, ease, floor); }
   function floorNow() { return view === "tree" && !big ? FLOOR() : 0; }
+  function home(ease) {         // the view a tree opens in
+    if (view === "tree" && big) fitBox(0, 0, W, H, ease, 0, null, true);   // every column across; drag up and down
+    else fitAll(ease, floorNow());
+  }
   function reveal(path, ease) { // bring a person into the clear part of the stage
     var n = byPath[path];
     if (!n) return;
@@ -180,60 +194,59 @@
 
   // ------------------------------------------------------------------ the tree
   function layout() {
-    nodes = []; byPath = {}; maxG = 0; sides = [];
-    function place(sl, path, g, dir, c) {
-      var n = { sl: sl, path: path, g: g, dir: dir, col: dir * g, kids: [] };
+    nodes = []; byPath = {}; maxG = 0;
+    var nextY = 0;
+    (function place(sl, path, g) {
+      var n = { sl: sl, path: path, g: g, kids: [] };
       nodes.push(n); byPath[path] = n;
       if (g > maxG) maxG = g;
-      if (g > c.g) c.g = g;
       var pr = par(sl);
       n.hasPar = !!(pr[0] || pr[1]);
       if (n.hasPar && open[path] && g < 40) {
-        if (pr[0]) n.kids.push(place(pr[0], path + "f", g + 1, dir, c));
-        if (pr[1]) n.kids.push(place(pr[1], path + "m", g + 1, dir, c));
+        if (pr[0]) n.kids.push(place(pr[0], path + "f", g + 1));
+        if (pr[1]) n.kids.push(place(pr[1], path + "m", g + 1));
       }
       if (n.kids.length) n.y = (n.kids[0].y + n.kids[n.kids.length - 1].y) / 2;
-      else { n.y = c.y; c.y += CH + GY; }
+      else { n.y = nextY; nextY += CH + GY; }
+      n.x = g * (CW + GX);
       return n;
-    }
-    var pitch = CW + GX;
-    if (!dense) {
-      var one = { y: 0, g: 0 };
-      place(root, "r", 0, 1, one);
-      nodes.forEach(function (n) { n.x = n.col * pitch; });
-      W = (maxG + 1) * pitch - GX + 42;      // room for the + buttons on the last column
-      H = Math.max(CH, one.y - GY);
-      return;
-    }
-    // Everyone: the root in the middle, father's ancestors running left, mother's running right.
-    var r = { sl: root, path: "r", g: 0, dir: 1, col: 0, kids: [] }, pr = par(root);
-    nodes.push(r); byPath.r = r;
-    r.hasPar = !!(pr[0] || pr[1]);
-    var L = { y: 0, g: 0 }, R = { y: 0, g: 0 }, pad = 42;
-    if (r.hasPar && open.r) {
-      if (pr[0]) r.kids.push(place(pr[0], "rf", 1, -1, L));
-      if (pr[1]) r.kids.push(place(pr[1], "rm", 1, 1, R));
-    }
-    var hL = Math.max(CH, L.y - GY), hR = Math.max(CH, R.y - GY), inner = Math.max(hL, hR);
-    W = (L.g + R.g + 1) * pitch - GX + 2 * pad;
-    var kf = Math.min(1, stage.clientWidth / W, stage.clientHeight / inner);
-    var fs = Math.round(13 / kf), top = r.kids.length ? Math.round(fs * 2.4) : 0;   // headings readable from far away
+    })(root, "r", 0);
+    W = (maxG + 1) * (CW + GX) - GX + 42;      // room for the + buttons on the last column
+    H = Math.max(CH, nextY - GY);
+  }
+  function genName(g) {
+    if (g === 0) return first(P[root][0]);
+    if (g === 1) return "Parents";
+    if (g === 2) return "Grandparents";
+    if (g === 3) return "Great-grandparents";
+    return ordinal(g - 2) + " great-grandparents";
+  }
+  function paintCols() {        // one heading per column: the generation and when its people were born
+    if (!colsEl) return;
+    var lo = [], hi = [], html = "";
     nodes.forEach(function (n) {
-      n.x = pad + (n.col + L.g) * pitch;
-      if (n !== r) n.y += top + (inner - (n.dir < 0 ? hL : hR)) / 2;
+      var m = /^\s*(?:c\.|bef\.|aft\.)?\s*(\d{4})/.exec(P[n.sl][1] || "");
+      if (!m) return;
+      var y = +m[1];
+      if (!(n.g in lo) || y < lo[n.g]) lo[n.g] = y;
+      if (!(n.g in hi) || y > hi[n.g]) hi[n.g] = y;
     });
-    r.y = top + inner / 2 - CH / 2;
-    H = top + inner;
-    if (L.g) sides.push({ x: (pad + r.x - GX) / 2, y: top * 0.3, fs: fs, t: "Father’s side" });
-    if (R.g) sides.push({ x: (r.x + CW + GX + W - pad) / 2, y: top * 0.3, fs: fs, t: "Mother’s side" });
+    for (var g = 0; g <= maxG; g++) {
+      var yrs = g in lo ? (lo[g] === hi[g] ? String(lo[g]) : lo[g] + "–" + hi[g]) : "";
+      html += '<div class="tc"><b class="c-kin">' + esc(genName(g)) + '</b><b class="c-gen">Gen ' + (g + 1) + '</b><b class="c-n">' + (g + 1) +
+        '</b><small><span class="c-l">Gen ' + (g + 1) + (yrs ? " · born " : "") + "</span>" + yrs + "</small></div>";
+    }
+    colsEl.innerHTML = html;
+    colEls = colsEl.children;
   }
   function paintTree() {
     layout();
+    paintCols();
     var html = "", d = "", hi = "";
     nodes.forEach(function (n) {
       var p = P[n.sl], isOpen = !!n.kids.length;
       var onLine = sel && sel.indexOf(n.path) === 0;
-      html += '<div class="tn ' + cls(p[2]) + (n.path === sel ? " sel" : "") + (n.g === 0 ? " root" : "") + (n.dir < 0 ? " lft" : "") +
+      html += '<div class="tn ' + cls(p[2]) + (n.path === sel ? " sel" : "") + (n.g === 0 ? " root" : "") +
         '" data-path="' + n.path + '" style="left:' + n.x + "px;top:" + n.y + 'px">' +
         '<button type="button" class="tn-card" title="' + esc(p[0] + (p[1] ? ", " + p[1] : "")) + '">' +
         '<span class="tn-name">' + esc(p[0]) + '</span><span class="tn-life">' + esc(dense ? years(p[1]) : p[1]) + "</span></button>" +
@@ -241,15 +254,11 @@
           (isOpen ? "Hide the ancestors of " : "Show the parents of ") + esc(p[0]) + '">' +
           (isOpen ? "−" : "+" + anc(n.sl)) + "</button>" : "") + "</div>";
       n.kids.forEach(function (k) {
-        var out = k.dir > 0, x1 = out ? n.x + CW : n.x, x2 = out ? k.x : k.x + CW;
-        var y1 = n.y + CH / 2, y2 = k.y + CH / 2, mx = (x1 + x2) / 2;
+        var x1 = n.x + CW, y1 = n.y + CH / 2, x2 = k.x, y2 = k.y + CH / 2, mx = (x1 + x2) / 2;
         var seg = dense ? "M" + x1 + " " + y1 + "H" + mx + "V" + y2 + "H" + x2
           : "M" + x1 + " " + y1 + "C" + mx + " " + y1 + " " + mx + " " + y2 + " " + x2 + " " + y2;
         if (onLine && sel.indexOf(k.path) === 0) hi += seg; else d += seg;
       });
-    });
-    sides.forEach(function (s) {
-      html += '<div class="tree-side" style="left:' + s.x + "px;top:" + s.y + "px;font-size:" + s.fs + 'px">' + s.t + "</div>";
     });
     cardsEl.innerHTML = html;
     marks = cardsEl.querySelectorAll(".tn.sel, .tn.root");
@@ -379,9 +388,9 @@
     if (depthEl) depthEl.textContent = shown + (small ? " gen." : " generations");
     stage.querySelectorAll("[data-view]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.view === view)); });
     stage.querySelectorAll("[data-depth]").forEach(function (b) {
-      var a = b.dataset.depth, top = view === "fan" ? max : Math.min(TREE_CAP, max);
-      if (a === "all") b.setAttribute("aria-pressed", String(view === "fan" ? shown >= max && max > 2 : big && nodes.length === anc(root) + 1));
-      else b.disabled = a === "-" ? shown <= 2 : shown >= top || (big && view === "tree");
+      var a = b.dataset.depth;
+      if (a === "all") b.setAttribute("aria-pressed", String(max > 2 && (view === "fan" ? shown >= max : nodes.length === anc(root) + 1)));
+      else b.disabled = a === "-" ? shown <= 2 : shown >= max;
     });
     if (homeEl) {
       homeEl.hidden = root === D.root;
@@ -444,7 +453,7 @@
       apply(false);
     } else {
       paint();
-      fitAll(false, floorNow());
+      home(false);
     }
   }
 
@@ -565,31 +574,32 @@
         if (view === "tree" && sel) for (var i = 1; i < sel.length; i++) open[sel.slice(0, i)] = true;
         paint();
         if (sel) showPanel(); else hidePanel();
-        fitAll(false, floorNow());
+        home(false);
       });
     });
     stage.querySelectorAll("[data-depth]").forEach(function (b) {
       b.addEventListener("click", function () {
         var a = b.dataset.depth;
-        var jump = big || a === "all";                         // the picture changes shape: no glide
-        if (a === "all") {
-          if (view === "fan") fanDepth = 99;
-          else { big = true; open = {}; openAll("r"); }
-        }
-        else if (view === "fan") fanDepth = a === "+" ? fanRings() + 1 : fanRings() - 1;
+        var was = dense;
+        if (view === "fan") fanDepth = a === "all" ? 99 : a === "+" ? fanRings() + 1 : fanRings() - 1;
         else {
-          var to = big ? TREE_CAP : a === "+" ? maxG + 2 : Math.max(maxG, 2);
-          big = false;
-          setDepth(Math.min(TREE_CAP, to));
+          var to = Math.min(deep(root), a === "all" ? 99 : a === "+" ? maxG + 2 : Math.max(maxG, 2));
+          big = to > TREE_CAP;
+          setDepth(to);
         }
         if (sel && view === "fan" && sel.length > fanRings() + 1) sel = null;
         paint();
         if (sel && view === "tree" && !byPath[sel]) { sel = null; paint(); }
         if (sel) showPanel(); else hidePanel();
         syncHash();
-        // Up to six generations stay readable and you drag; Everyone shows the whole shape.
-        fitAll(!jump, view === "tree" && !big ? 0.62 : 0);
-        if (a === "all" && view === "tree") say(nodes.length.toLocaleString() + " people · " + (small ? "tap" : "click") + " any part to zoom in there");
+        // Up to six generations stay readable and you drag. Deeper, every column stays on
+        // screen under its heading and the rows shrink; a tap zooms in.
+        if (view === "tree" && big) home(false);
+        else fitAll(!was && a !== "all", view === "tree" ? 0.62 : 0);
+        if (view === "tree" && stage.classList.contains("far") && !told) {
+          told = true;
+          say((small ? "Tap" : "Click") + " any part to zoom in there");
+        }
       });
     });
     stage.querySelectorAll("[data-zoom]").forEach(function (b) {
@@ -609,7 +619,7 @@
         metrics();
         paint();
         if (sel) showPanel();
-        if (was !== small) fitAll(false, floorNow()); else apply(false);
+        if (was !== small) home(false); else apply(false);
       }, 150);
     });
   }
