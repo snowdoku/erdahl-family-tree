@@ -293,8 +293,7 @@ body.app .site-foot { display: none; }
 .tree-stage.panning { cursor: grabbing; }
 .tree-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 15px var(--sans); color: var(--muted); }
 .tree-stage.ready .tree-loading { display: none; }
-.tree-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
-.tree-world.ease { transition: transform .34s cubic-bezier(.2,.7,.2,1); }
+.tree-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .tree-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .tree-lines path { fill: none; stroke: var(--tl); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .tree-lines path.hi { stroke: var(--accent); stroke-width: 3; }
@@ -320,10 +319,31 @@ body.app .site-foot { display: none; }
 .tn-x[aria-expanded="true"] { min-width: 20px; width: 20px; height: 20px; padding: 0; color: var(--muted); font-size: 14px; }
 .far .tn-name, .far .tn-life, .far .tn-x { visibility: hidden; }
 .far .tn-card { background: var(--c, var(--tl)); border-color: transparent; }
-.far .tn.sel .tn-card { box-shadow: 0 0 0 10px var(--accent); }
+.far .tn.root .tn-card { background: var(--ink); box-shadow: 0 0 0 var(--ring, 10px) var(--ink); }
+.far .tn.sel .tn-card { background: var(--accent); box-shadow: 0 0 0 var(--ring, 10px) var(--accent); }
+.far .tn.sel, .far .tn.root { z-index: 1; }
+.far .tree-lines path { stroke-width: 1; }
+
+/* Everyone: one thin line per person, father's side to the left of the root, mother's to the right */
+.tn.lft .tn-x { left: auto; right: calc(100% - 5px); }
+.dense .tn-card { flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; padding: 0 6px 0 7px;
+  border-left-width: 4px; border-radius: 5px; }
+.dense .tn-name { flex: 1 1 auto; min-width: 0; display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; line-height: 20px; }
+.dense .tn-life { flex: none; margin: 0; font-size: 10.5px; }
+.dense .tn-x { height: 18px; min-width: 22px; padding: 0 5px; font-size: 10px; }
+.dense .tn-x::before { inset: -3px -6px; }
+.dense .tn-x[aria-expanded="true"] { width: 16px; min-width: 16px; height: 16px; font-size: 12px; }
+.dense .tn.sel .tn-card { box-shadow: 0 0 0 2px var(--accent); }
+.dense.far .tn-card { border-radius: 0; }
+.dense.far .tn.sel .tn-card { box-shadow: 0 0 0 var(--ring, 10px) var(--accent); }
+.tree-side { display: none; position: absolute; transform: translateX(-50%); white-space: nowrap; line-height: 1;
+  font-family: var(--sans); font-weight: 600; color: var(--ink2); pointer-events: none; }
+.dense.far .tree-side { display: block; }
 
 .fan { display: block; overflow: visible; }
 .fan .seg path { fill: var(--c, var(--tl)); stroke: var(--sunk); stroke-width: 1.5; fill-opacity: .32; cursor: pointer; vector-effect: non-scaling-stroke; }
+.fan .band { fill: var(--tl); fill-opacity: .13; stroke: var(--sunk); stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
+.fan .seg.thin path { stroke: var(--c, var(--tl)); stroke-width: 1; stroke-opacity: .75; }
 .fan .seg.none path { fill: none; stroke: var(--tl); stroke-width: 1; stroke-dasharray: 3 5; opacity: .5; cursor: grab; }
 .fan a.seg:hover path { fill-opacity: .55; }
 .fan a.seg.sel path { fill-opacity: .7; stroke: var(--accent); stroke-width: 3; }
@@ -387,6 +407,7 @@ a.tree-home[hidden] { display: none; }
   .tree-bar { left: 8px; right: 8px; top: 8px; gap: 6px; }
   .tn-name { font-size: 14px; }
   .tn-life { font-size: 12px; }
+  .dense .tn-life { display: none; }
   .seg button { padding: 0 11px; }
   .seg-label { padding: 0 8px; }
   .tree-legend { display: none; }
