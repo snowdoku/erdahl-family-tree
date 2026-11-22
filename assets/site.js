@@ -2,9 +2,8 @@
 (function () {
   "use strict";
   var root = document.documentElement;
-  var base = (document.querySelector('link[href$="assets/site.css"]') || {}).getAttribute
-    ? document.querySelector('link[href$="assets/site.css"]').getAttribute("href").replace("assets/site.css", "")
-    : "";
+  var css = document.querySelector('link[href*="assets/site.css"]');
+  var base = css ? css.getAttribute("href").replace(/assets\/site\.css.*$/, "") : "";
 
   // Light / dark toggle, remembered on this device only.
   document.querySelectorAll("[data-theme-toggle]").forEach(function (b) {
@@ -39,36 +38,98 @@
     });
   }
 
+  // Menu button (narrow screens).
+  var menuBtn = document.querySelector(".menu-btn"), nav = document.getElementById("site-nav");
+  if (menuBtn && nav) {
+    menuBtn.addEventListener("click", function () {
+      var on = nav.classList.toggle("open");
+      menuBtn.setAttribute("aria-expanded", String(on));
+    });
+    document.addEventListener("click", function (e) {
+      if (nav.classList.contains("open") && !e.target.closest(".site-nav, .menu-btn")) {
+        nav.classList.remove("open"); menuBtn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  // One search index, loaded the first time it is needed.
+  var idx = null;
+  function loadIndex() {
+    return idx || (idx = fetch(base + "search/index.json").then(function (r) { return r.json(); }));
+  }
+  function find(data, text, limit) {
+    var q = fold(text).split(" ").filter(Boolean);
+    if (!q.length) return [];
+    var whole = q.join(" "), hits = [];
+    for (var i = 0; i < data.length && hits.length < 400; i++) {
+      var words = data[i][3].split(" ");
+      if (q.every(function (t) { return words.some(function (w) { return w.indexOf(t) === 0; }); })) {
+        hits.push([data[i][3].indexOf(whole) === 0 ? 0 : 1, hits.length, data[i]]);   // names that start with it first
+      }
+    }
+    hits.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    return hits.slice(0, limit).map(function (h) { return h[2]; });
+  }
+  function hit(r) {
+    var meta = [r[2], r[4] ? "child of " + r[4] : "", r[5]].filter(Boolean).join(" · ");
+    return '<a href="' + base + "p/" + r[0] + '/"><span class="r-name">' + esc(r[1]) +
+      '</span><span class="r-meta">' + esc(meta) + "</span></a>";
+  }
+
   // Search page.
   var sq = document.getElementById("sq");
   if (sq) {
     var out = document.getElementById("results");
-    var data = null;
-    var q0 = new URLSearchParams(location.search).get("q") || "";
-    sq.value = q0;
-    fetch(base + "search/index.json").then(function (r) { return r.json(); }).then(function (d) {
-      data = d; run();
-    });
+    sq.value = new URLSearchParams(location.search).get("q") || "";
+    var run = function () {
+      loadIndex().then(function (data) {
+        if (!fold(sq.value)) { out.innerHTML = ""; return; }
+        var hits = find(data, sq.value, 80);
+        out.innerHTML = hits.length ? hits.map(function (r) { return "<li>" + hit(r) + "</li>"; }).join("")
+          : '<li class="fine">Nobody matches. Try fewer letters, or only the first name.</li>';
+      });
+    };
     sq.addEventListener("input", run);
-    function run() {
-      if (!data) return;
-      var q = fold(sq.value).split(" ").filter(Boolean);
-      if (!q.length) { out.innerHTML = ""; return; }
-      var hits = [];
-      for (var i = 0; i < data.length && hits.length < 80; i++) {
-        var words = data[i][3].split(" ");
-        var ok = q.every(function (t) { return words.some(function (w) { return w.indexOf(t) === 0; }); });
-        if (ok) hits.push(data[i]);
-      }
-      out.innerHTML = hits.length ? hits.map(function (r) {
-        var meta = [r[2], r[4] ? "child of " + r[4] : "", r[5]].filter(Boolean).join(" · ");
-        return '<li><a href="' + base + "p/" + r[0] + '/"><span class="r-name">' + esc(r[1]) +
-          '</span><span class="r-meta">' + esc(meta) + "</span></a></li>";
-      }).join("") : '<li class="fine">Nobody matches. Try fewer letters, or only the first name.</li>';
-    }
+    run();
   }
-  var hq = document.getElementById("site-q");
-  if (hq && sq) hq.value = sq.value;
+
+  // Header search: results appear as you type; Enter opens the first, or the full list.
+  var hq = document.getElementById("site-q"), list = document.getElementById("site-results");
+  if (hq && list) {
+    if (sq) hq.value = sq.value;
+    var active = -1;
+    var close = function () { list.hidden = true; hq.setAttribute("aria-expanded", "false"); active = -1; };
+    var show = function () {
+      var text = hq.value;
+      if (!fold(text)) return close();
+      loadIndex().then(function (data) {
+        if (hq.value !== text) return;
+        var hits = find(data, text, 8);
+        list.innerHTML = hits.length
+          ? hits.map(function (r) { return '<li role="option">' + hit(r) + "</li>"; }).join("") +
+            '<li class="r-all"><a href="' + base + "search/?q=" + encodeURIComponent(text) + '">See every match</a></li>'
+          : '<li class="r-none">Nobody matches. Try fewer letters, or only the first name.</li>';
+        list.hidden = false; hq.setAttribute("aria-expanded", "true"); active = -1;
+      });
+    };
+    hq.addEventListener("focus", function () { loadIndex(); if (hq.value) show(); });
+    hq.addEventListener("input", show);
+    hq.addEventListener("keydown", function (e) {
+      var items = list.querySelectorAll("li a");
+      if (e.key === "Escape") { close(); return; }
+      if (list.hidden || !items.length) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        active = (active + (e.key === "ArrowDown" ? 1 : -1) + items.length + (active < 0 && e.key === "ArrowUp" ? 1 : 0)) % items.length;
+        items.forEach(function (a, i) { a.parentNode.classList.toggle("on", i === active); });
+        items[active].scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        location.href = items[active < 0 ? 0 : active].href;
+      }
+    });
+    document.addEventListener("click", function (e) { if (!e.target.closest(".site-search")) close(); });
+  }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 

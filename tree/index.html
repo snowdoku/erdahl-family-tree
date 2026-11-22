@@ -7,54 +7,59 @@
 <meta name="description" content="Family tree · Erdahl Family Tree">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
-<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/site.css?v=28057471">
 <script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
-<body>
+<body class="app">
 <a class="skip" href="#main">Skip to the page</a>
 <header class="site">
   <div class="site-in">
     <a class="brand" href="../">Erdahl Family Tree</a>
-    <nav class="site-nav" aria-label="Site"><a href="../lines/">Family lines</a><a href="../tree/" aria-current=page>Tree</a><a href="../browse/">Browse</a><a href="../about/">How to read this</a></nav>
+    <nav class="site-nav" id="site-nav" aria-label="Site"><a href="../tree/" aria-current=page>Tree</a><a href="../lines/">Family lines</a><a href="../browse/">Browse</a><a href="../relate/">How we’re related</a><a href="../about/">How to read this</a><button type="button" class="theme-btn" data-theme-toggle>Light / dark</button></nav>
     <form class="site-search" action="../search/" role="search">
       <label for="site-q" class="vh">Find a person</label>
-      <input id="site-q" name="q" type="search" placeholder="Find a person" autocomplete="off">
-      <button type="submit">Find</button>
+      <input id="site-q" name="q" type="search" placeholder="Find a person" autocomplete="off" autocapitalize="off" spellcheck="false"
+        role="combobox" aria-expanded="false" aria-controls="site-results" aria-autocomplete="list">
+      <ol class="site-results" id="site-results" role="listbox" hidden></ol>
     </form>
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="site-nav"><span class="vh">Menu</span><i aria-hidden="true"></i></button>
   </div>
 </header>
 
 <main id="main">
-<article class="tree-wrap"><h1>Family tree</h1><section class="tree-page" aria-label="Family tree">
-<div class="tree-bar">
-  <div class="seg-btns" role="group" aria-label="View">
-    <button type="button" class="btn" data-view="pedigree" aria-pressed="true">Pedigree</button>
-    <button type="button" class="btn" data-view="fan" aria-pressed="false">Fan</button>
+<div id="tree" class="tree-stage" data-base="../">
+<h1 class="vh">The Erdahl family tree</h1>
+<div class="tree-world"><svg class="tree-lines" aria-hidden="true"></svg><div class="tree-cards"></div></div>
+<div class="tree-bar tree-ui">
+  <div class="seg" role="group" aria-label="View">
+    <button type="button" data-view="tree" aria-pressed="true">Tree</button>
+    <button type="button" data-view="fan" aria-pressed="false">Fan</button>
   </div>
-  <div class="seg-btns" role="group" aria-label="Generations">
-    <button type="button" class="btn" data-depth="-" aria-label="Fewer generations">− Fewer</button>
-    <button type="button" class="btn" data-depth="+" aria-label="More generations">+ More</button>
-    <button type="button" class="btn" data-depth="all">All generations</button>
+  <div class="seg" role="group" aria-label="Generations shown">
+    <button type="button" data-depth="-" aria-label="Show one generation fewer">−</button>
+    <span class="seg-label" id="tree-depth" aria-live="polite"></span>
+    <button type="button" data-depth="+" aria-label="Show one more generation">+</button>
   </div>
-  <div class="seg-btns" role="group" aria-label="Zoom">
-    <button type="button" class="btn" data-zoom="out" aria-label="Zoom out">Zoom out</button>
-    <button type="button" class="btn" data-zoom="in" aria-label="Zoom in">Zoom in</button>
-    <button type="button" class="btn" data-zoom="fit">Fit</button>
-    <span class="fine zoom-level" id="tree-zoom">100%</span>
-  </div>
-  <span class="fine" id="tree-depth" aria-live="polite"></span>
+  <div class="seg"><button type="button" data-depth="all" aria-pressed="false" title="Every generation in one picture">Everyone</button></div>
+  <a class="seg tree-home" id="tree-home" href="#/" hidden></a>
 </div>
-<p class="fine tree-help">Tap a person to move the tree to them. <strong>More</strong> reaches further back; <strong>Zoom out</strong> (or pinch) shows more at once.</p>
-<div id="tree" class="tree" data-base="../"><p>Loading the tree…</p></div>
-<div id="tree-kids" class="tree-kids"></div>
-<noscript><p>The tree needs JavaScript. Everyone is also listed <a href="../browse/generations/">by generation</a>.</p></noscript>
-</section>
-<script src="../assets/tree.js" defer></script></article>
+<div class="tree-zoom seg tree-ui" role="group" aria-label="Zoom">
+  <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+  <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+  <button type="button" data-zoom="fit" aria-label="Fit the whole tree on screen">Fit</button>
+</div>
+<p class="tree-legend tree-ui"><span class="conf-confirmed"><i class="dot"></i>Confirmed</span><span class="conf-probable"><i class="dot"></i>Probable</span><span class="conf-speculative"><i class="dot"></i>Speculative</span><span class="conf-user"><i class="dot"></i>From family</span><span class="conf-living"><i class="dot"></i>Living</span><a href="../about/#grades">What these mean</a></p>
+<p class="tree-hint" id="tree-hint"><span class="mouse">Drag to move · scroll to zoom · click a person</span><span class="touch">Drag to move · pinch to zoom · tap a person</span></p>
+<aside class="tree-panel tree-ui" id="tree-panel" aria-live="polite" hidden></aside>
+<p class="tree-loading">Loading the tree…</p>
+<noscript><p class="tree-loading">The tree needs JavaScript. Everyone is also listed <a href="../browse/generations/">by generation</a>.</p></noscript>
+</div>
+<script src="../assets/tree.js?v=28057471" defer></script>
 </main>
 <footer class="site-foot">
-  <p><a href="../">Home</a> · <a href="../about/">What the grades mean</a> · <button type="button" class="theme-btn" data-theme-toggle>Light / dark</button></p>
-  <p class="fine">Public edition, built 8 November 2026. Living relatives are shown by their given names only.</p>
+  <p><a href="../">Home</a> · <a href="../about/">What the grades mean</a></p>
+  <p class="fine">Public edition, built 21 November 2026. Living relatives are shown by their given names only.</p>
 </footer>
-<script src="../assets/site.js" defer></script>
+<script src="../assets/site.js?v=28057471" defer></script>
 </body>
 </html>
