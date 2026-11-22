@@ -1,6 +1,7 @@
 /* The family tree: a map you can drag and zoom.
    - Drag to move, wheel or pinch to zoom, double-click to zoom in.
-   - Tap a person: a card opens with who they are and what you can do next.
+   - Hover over a person for their name, dates and place. Click or tap one and a panel opens
+     on the right with their biography and its sources, taken from that person's own page.
    - The + on a person's right edge opens their parents; − closes that branch.
    - The stepper goes from 2 generations to all of them, always left to right. Past six the
      rows become thin and every column is kept on screen; tap any part to zoom in there.
@@ -24,6 +25,7 @@
   var colsEl = document.getElementById("tree-cols");
   var keyEl = document.getElementById("tree-key");
   var colorEl = document.getElementById("tree-color");
+  var tip = document.getElementById("tree-tip");
 
   var D, P, root = null, view = "tree", sel = null, open = {}, fanDepth = 5;
   var nodes = [], byPath = {}, W = 0, H = 0, maxG = 0;
@@ -346,7 +348,7 @@
       var onLine = sel && sel.indexOf(n.path) === 0, tc = tint(n.sl, n.path)[0];
       html += '<div class="tn ' + cls(p[2]) + (n.path === sel ? " sel" : "") + (n.g === 0 ? " root" : "") +
         '" data-path="' + n.path + '" style="left:' + n.x + "px;top:" + n.y + "px" + (tc ? ";--c:" + tc : "") + '">' +
-        '<button type="button" class="tn-card" title="' + esc(p[0] + (p[1] ? ", " + p[1] : "")) + '">' +
+        '<button type="button" class="tn-card">' +
         '<span class="tn-name">' + esc(p[0]) + '</span><span class="tn-life">' + esc(dense ? years(p[1]) : p[1]) + "</span></button>" +
         (n.hasPar ? '<button type="button" class="tn-x" aria-expanded="' + isOpen + '" aria-label="' +
           (isOpen ? "Hide the ancestors of " : "Show the parents of ") + esc(p[0]) + '">' +
@@ -441,8 +443,7 @@
         }
         var tc = tint(sl, path)[0];
         out.push('<a href="#" data-path="' + path + '"' + (tc ? ' style="--c:' + tc + '"' : "") + ' aria-label="' + esc(p[0] + ", " + p[1] + ", " + p[2]) +
-          '" class="seg ' + cls(p[2]) + (len < 6 ? " thin" : "") + (path === sel ? " sel" : "") + '"><title>' + esc(p[0] + (p[1] ? ", " + p[1] : "")) +
-          '</title><path d="' + arc(cx, cy, ri, ro, a0, a1) + '"></path>' + txt + "</a>");
+          '" class="seg ' + cls(p[2]) + (len < 6 ? " thin" : "") + (path === sel ? " sel" : "") + '"><path d="' + arc(cx, cy, ri, ro, a0, a1) + '"></path>' + txt + "</a>");
       }
       if (g >= n) return;
       var pr = par(sl), half = (a0 + a1) / 2;
@@ -476,6 +477,7 @@
 
   // ------------------------------------------------------------------ paint, toolbar, panel
   function paint() {
+    hideTip();
     metrics();
     marks = [];
     if (view === "fan") paintFan(); else paintTree();
@@ -499,12 +501,17 @@
     }
     render();
   }
+  // The panel on the right: who the person is, then their whole biography and its sources,
+  // read from that person's own page so the tree never carries a second copy of the text.
+  var bioFor = null, bioCache = {};
+  var tipPath = null;
+  function hideTip() { if (tip && tipPath !== null) { tipPath = null; tip.hidden = true; } }
   function showPanel() {
     var sl = sel && slugAt(sel);
     if (!sl) return hidePanel();
     var p = P[sl], n = byPath[sel], f = first(p[0]), acts = "";
     var where = p[7] ? " · born in " + p[7] : "", tc = tint(sl, sel), more = "";
-    if (colorBy !== "conf" && tc[1]) more = '<p class="tp-grade" style="--c:' + tc[0] + '"><i class="dot"></i>' + esc(tc[1]) + "</p>";
+    if (colorBy !== "conf" && tc[1]) more = '<span class="tp-grade" style="--c:' + tc[0] + '"><i class="dot"></i>' + esc(tc[1]) + "</span>";
     if (colorBy === "eth" && p[10]) more += '<p class="tp-note">' + esc(p[10]) + "</p>";
     if (colorBy === "war" && p[12]) more += '<p class="tp-note">' + esc(p[12]) + "</p>";
     if (view === "tree" && n && n.hasPar) {
@@ -512,18 +519,74 @@
       if (anc(sl) > 2 && anc(sl) <= 120 && !n.kids.length) acts += '<button type="button" class="btn" data-act="all">Show all ' + anc(sl).toLocaleString() + " ancestors</button>";
     }
     if (sl !== root) acts += '<button type="button" class="btn" data-act="root">Start the ' + (view === "fan" ? "fan" : "tree") + " from " + esc(f) + "</button>";
-    panel.innerHTML = '<button type="button" class="tp-close" data-act="close" aria-label="Close">×</button>' +
+    acts += '<a class="btn" href="' + base + "p/" + sl + '/">Open the full page</a>';
+    if (bioFor !== sl || !panel.firstChild) {
+      panel.innerHTML = '<div class="tp-head"></div><div class="tp-scroll"><div class="tp-acts"></div>' +
+        '<div class="tp-bio"><p class="tp-wait">Loading the biography…</p></div></div>';
+      bioFor = sl;
+      loadBio(sl);
+    }
+    panel.querySelector(".tp-head").innerHTML =
+      '<button type="button" class="tp-close" data-act="close" aria-label="Close">×</button>' +
       '<p class="tp-kin">' + esc(kin(sel)) + "</p>" +
       '<h2 class="tp-name">' + esc(p[0]) + "</h2>" +
       '<p class="tp-life">' + esc(p[1]) + esc(where) + "</p>" +
-      '<p class="tp-grade ' + cls(p[2]) + '"><i class="dot"></i>' + esc(p[2]) + "</p>" + more +
-      '<div class="tp-acts"><a class="btn primary" href="' + base + "p/" + sl + '/">Open ' + esc(f) + "’s page</a>" + acts + "</div>";
+      '<p class="tp-chips"><span class="tp-grade ' + cls(p[2]) + '"><i class="dot"></i>' + esc(p[2]) + "</span>" + more + "</p>";
+    panel.querySelector(".tp-acts").innerHTML = acts;
     panel.hidden = false;
-    stage.style.setProperty("--sheet", small ? panel.offsetHeight + "px" : "0px");
+    room();
   }
   function hidePanel() {
-    panel.hidden = true; panel.innerHTML = "";
-    stage.style.setProperty("--sheet", "0px");
+    panel.hidden = true; panel.innerHTML = ""; bioFor = null;
+    room();
+  }
+  function room() {             // tell the rest of the stage how much the panel covers
+    var on = !panel.hidden, was = bar ? bar.offsetHeight : 0;
+    stage.style.setProperty("--sheet", on && small ? panel.offsetHeight + "px" : "0px");
+    stage.style.setProperty("--side", on && !small ? panel.offsetWidth + "px" : "0px");
+    if (bar && bar.offsetHeight !== was) { metrics(); render(); }   // the toolbar wrapped: move the headings
+  }
+  function loadBio(sl) {
+    var url = new URL(base + "p/" + sl + "/", location.href);
+    function put(html) {
+      var el = bioFor === sl && panel.querySelector(".tp-bio");
+      if (el) { el.innerHTML = html; panel.querySelector(".tp-scroll").scrollTop = 0; }
+    }
+    (bioCache[sl] || (bioCache[sl] = fetch(url.href).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    }).then(function (text) { return bioHtml(text, url); }))).then(put, function () {
+      delete bioCache[sl];
+      put('<p class="tp-wait">The biography could not be loaded. It is on the full page.</p>');
+    });
+  }
+  function bioHtml(text, url) {   // the parts of a person's page the panel shows, in reading order
+    var doc = new DOMParser().parseFromString(text, "text/html"), art = doc.querySelector("article.person");
+    if (!art) throw new Error("no article");
+    var get = function (id) { return doc.getElementById(id); };
+    var lead = art.querySelector(".id .lead"), glance = get("glance"), fam = get("family"), story = get("story"),
+      ev = get("evidence"), src = get("sources"), out = "";
+    art.querySelectorAll("a.pn, .ev-sum").forEach(function (el) { el.remove(); });
+    art.querySelectorAll("a[href]").forEach(function (a) {
+      var h = a.getAttribute("href");
+      if (h.charAt(0) === "#") return a.removeAttribute("href");
+      if (/^https?:/i.test(h)) { a.target = "_blank"; a.rel = "noopener"; }
+      else a.setAttribute("href", new URL(h, url).href);
+    });
+    art.querySelectorAll("[id]").forEach(function (el) { el.removeAttribute("id"); });
+    var inner = function (sec) { var h = sec.querySelector("h2"); if (h) h.remove(); return sec.innerHTML; };
+    if (lead) out += '<p class="tp-lead">' + lead.innerHTML + "</p>";
+    if (glance && glance.querySelector("table")) out += '<section class="tp-sec tp-facts">' + glance.querySelector("table").outerHTML + "</section>";
+    if (story) out += '<section class="tp-sec"><h3>Biography</h3>' + inner(story) + "</section>";
+    var notes = fam ? [].map.call(fam.querySelectorAll("p.note"), function (el) { return el.outerHTML; }).join("") : "";
+    if (notes) out += '<section class="tp-sec"><h3>Family</h3>' + notes + "</section>";
+    if (ev) out += '<details class="tp-sec tp-ev"><summary>How sure are we?</summary>' + inner(ev) + "</details>";
+    if (src) {
+      var c = src.querySelector(".count");
+      out += '<section class="tp-sec tp-src"><h3>Sources' + (c ? " <b>" + esc(c.textContent) + "</b>" : "") + "</h3>" +
+        src.querySelector("ol").outerHTML + "</section>";
+    }
+    return out || '<p class="tp-wait">Nothing has been written about this person yet.</p>';
   }
   function select(path, pan) {
     if (!path) { sel = null; hidePanel(); paint(); apply(false); syncHash(); return; }
@@ -531,6 +594,14 @@
     paint(); apply(false);
     showPanel();
     if (pan !== false && view === "tree") reveal(path, true);
+    if (pan !== false && view === "fan") {       // the panel must not sit on the slice just chosen
+      var el = cardsEl.querySelector(".sel"), r = region(), s = stage.getBoundingClientRect();
+      if (el) {
+        var b = el.getBoundingClientRect(), cx = (b.left + b.right) / 2 - s.left, cy = (b.top + b.bottom) / 2 - s.top;
+        var dx = cx > r.r - 50 ? r.r - 50 - cx : 0, dy = cy > r.b - 40 ? r.b - 40 - cy : 0;
+        if (dx || dy) { T.x += dx; T.y += dy; apply(true); }
+      }
+    }
     syncHash();
   }
   function syncHash() {
@@ -574,7 +645,38 @@
     }
     try { if (localStorage.getItem("treeHint")) hint.hidden = true; } catch (e) {}
 
+    // ---- the hover card: name, dates, place
+    function under(e) {                   // whose card or slice the mouse is on
+      var el = e.target.closest && e.target.closest("[data-path]");
+      if (el) return el.dataset.path;
+      if (view !== "tree" || !stage.classList.contains("far")) return null;
+      // zoomed far out, people are thin bars: take the nearest one in the column under the mouse
+      var q = local(e), wx = (q.x - cur.x) / cur.k, wy = (q.y - cur.y) / cur.k, best = null, bd = Math.max(CH, 12 / cur.k);
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i], d = Math.abs(wy - n.y - CH / 2);
+        if (wx >= n.x && wx <= n.x + CW && d < bd) { bd = d; best = n.path; }
+      }
+      return best;
+    }
+    stage.addEventListener("pointermove", function (e) {
+      if (!tip || e.pointerType !== "mouse" || e.buttons || ui(e)) return hideTip();
+      var path = under(e), sl = path && slugAt(path), p = sl && P[sl];
+      if (!p) return hideTip();
+      if (path !== tipPath) {
+        tipPath = path;
+        tip.innerHTML = "<b>" + esc(p[0]) + "</b>" + (p[1] ? "<span>" + esc(p[1]) + "</span>" : "") +
+          (p[7] ? "<span>Born in " + esc(p[7] + (p[8] && p[7].indexOf(p[8]) < 0 ? ", " + p[8] : "")) + "</span>" : "");
+        tip.hidden = false;
+      }
+      var q = local(e), w = tip.offsetWidth, h = tip.offsetHeight, x = q.x + 16, y = q.y + 20;
+      if (x + w > stage.clientWidth - (panel.hidden || small ? 0 : panel.offsetWidth) - 8) x = q.x - w - 12;
+      if (y + h > stage.clientHeight - 8) y = q.y - h - 12;
+      tip.style.transform = "translate(" + Math.max(8, x).toFixed(0) + "px," + Math.max(8, y).toFixed(0) + "px)";
+    });
+    stage.addEventListener("pointerleave", hideTip);
+
     stage.addEventListener("pointerdown", function (e) {
+      hideTip();
       if (ui(e) || (e.pointerType === "mouse" && e.button !== 0)) return;
       halt();
       var p = local(e);
@@ -621,6 +723,7 @@
     stage.addEventListener("wheel", function (e) {
       if (ui(e)) return;
       e.preventDefault();
+      hideTip();
       halt();
       var p = local(e), unit = e.deltaMode === 1 ? 30 : 1;
       zoomAt(p.x, p.y, T.k * Math.exp(-e.deltaY * unit * (e.ctrlKey ? 0.012 : 0.0018)), false);
@@ -647,6 +750,13 @@
       if (sel) select(null);
     });
     panel.addEventListener("click", function (e) {
+      var link = e.target.closest(".tp-bio a[href]"), m = link && /\/p\/([^\/]+)\/$/.exec(link.getAttribute("href"));
+      var to = m && P[m[1]] && view === "tree" && findPath(root, m[1]);
+      if (to) {                              // someone in this tree: go to them here
+        e.preventDefault();
+        for (var i = 1; i < to.length; i++) open[to.slice(0, i)] = true;
+        return select(to);
+      }
       var b = e.target.closest("[data-act]");
       if (!b) return;
       var a = b.dataset.act;
